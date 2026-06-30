@@ -928,7 +928,41 @@ async function program(){
       $('progressFill').style.width=35+(writtenCnt/blks.length)*60+'%';
     }
     log('写入完成 ('+writtenCnt+' 块)','ok');
-    log('[5/5] 复位...','step');
+
+    // 验证：读回前几个块检查数据是否正确
+    log('[5/6] 验证...','step');
+    var verifyOk=true;
+    var verifyBlocks=Math.min(3,blks.length); // 只验证前3块
+    for(var vi=0;vi<verifyBlocks;vi++){
+      var ai=blks[vi],aa=ai*bs;
+      var vPkt=buildPkt(0x6a,[0x06,0x00,(aa>>8)&0xff,aa&0xff,0x80,0x5a,0xa5]);
+      log('   验证块'+ai+' @0x'+aa.toString(16),'data');
+      rxQueue=[];
+      await write(vPkt);
+      var vRp=await waitPacket(3000);
+      if(!vRp||vRp.payload.length<8){
+        log('   验证失败: 无响应','err');
+        verifyOk=false;break;
+      }
+      // 比较数据: vRp.payload[5..] 应该与 hex.data[aa..aa+bs] 相同
+      var match=true;
+      for(var vi2=0;vi2<bs;vi2++){
+        var expected=(aa+vi2<d.length)?d[aa+vi2]:0xFF;
+        if(vRp.payload[5+vi2]!==expected){
+          match=false;
+          log('   数据不匹配 @0x'+(aa+vi2).toString(16)+': 期望0x'+expected.toString(16)+' 实际0x'+vRp.payload[5+vi2].toString(16),'err');
+          verifyOk=false;break;
+        }
+      }
+      if(!match) break;
+      log('   块'+ai+' 验证通过','ok');
+    }
+    if(!verifyOk){
+      log('验证失败! 固件数据可能损坏','err');
+      throw Error('验证失败');
+    }
+
+    log('[6/6] 复位...','step');
     if(isAndroid){
       // 发送软件复位命令
       var resetPkt=buildPkt(0x6a,[0x82]);
