@@ -301,6 +301,26 @@ async function startReader(){
 function stopReader(){rxRunning=false}
 
 async function waitPacket(ms){
+  // Android 模式：直接从串口读取并解析
+  if(isAndroid){
+    var all=new Uint8Array(0);
+    var deadline=Date.now()+ms;
+    while(Date.now()<deadline){
+      try{
+        var b64=AndroidBridge.readData(30);
+        if(b64&&b64.length>0){
+          var v=base64ToBytes(b64);
+          var tmp=new Uint8Array(all.length+v.length);
+          tmp.set(all);tmp.set(v,all.length);
+          all=tmp;
+          var pkt=parsePacket(all);
+          if(pkt) return pkt;
+        }
+      }catch(e){}
+    }
+    return null;
+  }
+  // WebSerial/WebUSB 模式：从队列读取
   for(var w=0;w<Math.ceil(ms/15);w++){
     if(rxQueue.length>0) return rxQueue.shift();
     await sleep(15);
@@ -789,20 +809,11 @@ async function program(){
     if(!rp||rp.payload[0]!==0x01)throw Error('设置参数失败: '+(rp?'0x'+rp.payload[0].toString(16):'超时'));
     log('   < 0x01 OK','ok');
     if(isAndroid){
-      // 停止读线程
-      androidStopRX();
-      await sleep(50);
       // 切换到目标波特率
       AndroidBridge.setSerialParameter(selBaud,8,1,2,false);
       log('   Android 波特率已切换到 '+selBaud,'data');
       // 等待波特率切换生效
-      await sleep(200);
-      // 清空旧缓冲区数据
-      androidFlushBuffer();
-      rxQueue=[];
-      rxBuf=new Uint8Array(0);
-      // 重启读线程
-      androidStartRX();
+      await sleep(100);
     }else if(port){
       rxRunning=false; await sleep(30);
       try{if(reader){await reader.cancel();reader=null}}catch(e){}
