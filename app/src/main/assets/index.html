@@ -885,7 +885,7 @@ async function program(){
       log('   块'+i+' @0x'+a.toString(16)+' cmd=0x'+cmd.toString(16),'data');
       rxQueue=[];
       await write(wpkt);
-      var to=wireless?10000:Math.max(100,Math.round(3000000/parseInt($('baud').value)));
+      var to=wireless?10000:(isAndroid?3000:Math.max(100,Math.round(3000000/parseInt($('baud').value))));
       rp=await waitPacket(to);
       if(!rp||rp.payload[0]!==0x02||rp.payload[1]!==0x54){
         throw Error('写入失败 @0x'+a.toString(16)+': '+(rp?'0x'+rp.payload[0].toString(16)+' '+rp.payload[1].toString(16):'超时'));
