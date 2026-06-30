@@ -875,17 +875,36 @@ function loadHex(f){
     $('fileInfo').innerHTML=f.name+' ('+h.size+'B)';
     btn('btnProgram',true);
   };
+  r.onerror=function(){
+    log('文件读取失败','err');
+  };
   r.readAsText(f);
   $('fileInput').value='';
 }
 
-$('fileInput').addEventListener('change',function(e){loadHex(e.target.files[0])});
+var fileInput=$('fileInput');
+fileInput.addEventListener('change',function(e){
+  var files=e.target.files;
+  if(files&&files.length>0){
+    loadHex(files[0]);
+  }
+});
+// Android WebView 可能需要点击触发
+fileInput.addEventListener('click',function(e){
+  e.stopPropagation();
+});
 var fz=$('fileZone');
+fz.addEventListener('click',function(e){
+  e.preventDefault();
+  fileInput.click();
+});
 fz.addEventListener('dragover',function(e){e.preventDefault();fz.classList.add('dragover')});
 fz.addEventListener('dragleave',function(){fz.classList.remove('dragover')});
 fz.addEventListener('drop',function(e){
   e.preventDefault();fz.classList.remove('dragover');
-  loadHex(e.dataTransfer.files[0]);
+  if(e.dataTransfer.files&&e.dataTransfer.files.length>0){
+    loadHex(e.dataTransfer.files[0]);
+  }
 });
 
 (function(){
