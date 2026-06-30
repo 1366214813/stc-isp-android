@@ -315,6 +315,15 @@ function btn(id,e){$(id).disabled=!e}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
 async function read(t){
+  // Android 模式：使用 AndroidBridge
+  if(isAndroid){
+    try{
+      var b64=AndroidBridge.readData(t||100);
+      if(!b64||b64.length===0) return new Uint8Array(0);
+      return base64ToBytes(b64);
+    }catch(e){return new Uint8Array(0)}
+  }
+  // WebSerial 模式
   try{
     var r=await Promise.race([reader.read(),new Promise(function(_,rej){setTimeout(function(){rej('t')},t||100)})]);
     return r.done?new Uint8Array(0):r.value;
