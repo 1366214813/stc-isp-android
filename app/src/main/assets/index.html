@@ -810,12 +810,17 @@ async function program(){
     var rp=await waitPacket(500);
     if(!rp||rp.payload[0]!==0x01)throw Error('设置参数失败: '+(rp?'0x'+rp.payload[0].toString(16):'超时'));
     log('   < 0x01 OK','ok');
+    // ISP 同步始终使用 115200 8E1
+    var ISP_BAUD=115200;
     if(isAndroid){
-      // 切换到目标波特率
-      AndroidBridge.setSerialParameter(selBaud,8,1,2,false);
-      log('   Android 波特率已切换到 '+selBaud,'data');
-      // 等待波特率切换生效
-      await sleep(100);
+      if(selBaud!==ISP_BAUD){
+        // 实际需要切换波特率
+        AndroidBridge.setSerialParameter(selBaud,8,1,2,false);
+        log('   Android 波特率已切换到 '+selBaud,'data');
+        await sleep(200);
+      }else{
+        log('   波特率未变化,跳过切换','data');
+      }
     }else if(port){
       rxRunning=false; await sleep(30);
       try{if(reader){await reader.cancel();reader=null}}catch(e){}
