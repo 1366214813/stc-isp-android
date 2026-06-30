@@ -11,8 +11,11 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import cn.wch.uartlib.WCHUARTManager;
+import cn.wch.uartlib.callback.IUsbStateChange;
 import cn.wch.uartlib.exception.ChipException;
 import cn.wch.uartlib.exception.NoPermissionException;
 import cn.wch.uartlib.exception.UartLibException;
@@ -64,17 +67,70 @@ public class SerialBridge {
                 return true;
             }
 
-            boolean opened = WCHUARTManager.getInstance().openDevice(device);
-            if (opened) {
-                currentDevice = device;
-                return true;
-            }
-            return false;
-        } catch (NoPermissionException e) {
+            // 尝试打开设备
             try {
-                WCHUARTManager.getInstance().requestPermission(activity, currentDevice);
-            } catch (Exception ex) {
-                // ignore
+                boolean opened = WCHUARTManager.getInstance().openDevice(device);
+                if (opened) {
+                    currentDevice = device;
+                    return true;
+                }
+                return false;
+            } catch (NoPermissionException e) {
+                // 需要请求 USB 权限
+                return requestPermissionAndWait(device);
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 请求 USB 权限并等待用户确认
+     */
+    private boolean requestPermissionAndWait(UsbDevice device) {
+        final CountDownLatch latch = new CountDownLatch(1);
+        final boolean[] result = {false};
+
+        try {
+            // 注册权限回调
+            WCHUARTManager.getInstance().setUsbStateListener(new IUsbStateChange() {
+                @Override
+                public void usbDeviceDetach(UsbDevice dev) {}
+
+                @Override
+                public void usbDeviceAttach(UsbDevice dev) {}
+
+                @Override
+                public void usbDevicePermission(UsbDevice dev, boolean granted) {
+                    if (dev != null && dev.equals(device)) {
+                        result[0] = granted;
+                        latch.countDown();
+                    }
+                }
+            });
+
+            // 在主线程请求权限
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        WCHUARTManager.getInstance().requestPermission(activity, device);
+                    } catch (Exception e) {
+                        latch.countDown();
+                    }
+                }
+            });
+
+            // 等待用户确认（最多 30 秒）
+            boolean waited = latch.await(30, TimeUnit.SECONDS);
+
+            if (result[0]) {
+                // 权限已授予，重新尝试打开设备
+                boolean opened = WCHUARTManager.getInstance().openDevice(device);
+                if (opened) {
+                    currentDevice = device;
+                    return true;
+                }
             }
             return false;
         } catch (Exception e) {
