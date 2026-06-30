@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link rel="icon" type="image/svg+xml" data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23238636'/%3E%3Cpath d='M12 5l-2 11h4l-1 11 9-14h-5l3-8z' fill='white' /%3E%3C/svg%3E">
+<title>STC Web ISP 烧录工具</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#191919;--bg2:#242424;--bd:#383838;--fg:#e0e0e0;--fg2:#999;--btn-bg:#2a2a2a;--btn-h:#383838;--blue:#1f6feb;--blue-h:#388bfd;--red:#da3633;--red-h:#f85149;--green:#238636;--green-h:#2ea043;--accent:#58a6ff;--log-bg:#191919;--ok:#3fb950;--err:#f85149;--warn:#d29922;--step:#bc8cff;--data:#999}
+@media(prefers-color-scheme:light){
+  :root{--bg:#fff;--bg2:#f6f8fa;--bd:#d0d7de;--fg:#24292f;--fg2:#656d76;--btn-bg:#f3f4f6;--btn-h:#e1e4e8;--blue:#0969da;--blue-h:#0550ae;--red:#cf222e;--red-h:#a40e26;--green:#1a7f37;--green-h:#116329;--accent:#0969da;--log-bg:#fff;--ok:#1a7f37;--err:#cf222e;--warn:#9a6700;--step:#8250df;--data:#656d76}
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);min-height:100vh}
+.container{max-width:800px;margin:0 auto;padding:16px}
+.header-row{display:flex;align-items:center;gap:10px;margin:4px 0}
+.back-btn{display:flex;align-items:center;gap:6px;text-decoration:none;color:var(--fg2);font-size:13px;cursor:pointer;transition:all .25s ease;white-space:nowrap;flex-shrink:0;background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;width:34px;overflow:hidden}
+.back-btn:hover{border-color:var(--accent)}
+.back-btn.expanded{color:var(--accent);width:auto;border-color:var(--accent)}
+.back-btn .arrow{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex-shrink:0}
+.back-btn .label{opacity:0;transition:opacity .2s;font-size:12px}
+.back-btn.expanded .label{opacity:1}
+.back-btn .arrow svg{display:block}
+.title-area{text-align:center;flex:1}
+.title-area h1{font-size:20px;color:var(--accent);margin:0}
+.title-area small{font-size:12px;color:var(--fg2);display:block;margin-top:2px}
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:10px}
+.card-title{font-size:13px;font-weight:600;margin-bottom:8px}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:6px;border:1px solid var(--bd);cursor:pointer;font-size:12px;font-weight:500;background:var(--btn-bg);color:var(--fg);transition:all .2s}
+.btn:hover{background:var(--btn-h)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-p{background:var(--blue);border-color:var(--blue);color:#fff}.btn-p:hover{background:var(--blue-h)}
+.btn-d{background:var(--red);border-color:var(--red);color:#fff}.btn-d:hover{background:var(--red-h)}
+.btn-g{background:var(--green);border-color:var(--green);color:#fff}.btn-g:hover{background:var(--green-h)}
+.btn-group{display:flex;gap:6px;flex-wrap:wrap}
+.info{font-size:12px;color:var(--fg2);margin-top:4px}
+.file-zone{border:2px dashed var(--bd);border-radius:6px;padding:20px;text-align:center;cursor:pointer;position:relative}
+.file-zone:hover,.file-zone.dragover{border-color:var(--accent)}
+.file-zone input[type=file]{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.log{background:var(--bg);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;max-height:400px;overflow-y:auto;line-height:1.5}
+.log .ok{color:var(--ok)}.log .err{color:var(--err)}.log .warn{color:var(--warn)}.log .step{color:var(--step)}.log .data{color:var(--fg2);font-size:10px}
+.progress{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin:8px 0;display:none}
+.progress.active{display:block}
+.progress .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--blue),var(--accent));transition:width .3s}
+select{background:var(--bg);border:1px solid var(--bd);border-radius:4px;color:var(--fg);padding:4px 8px;font-size:12px}
+.chip-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;margin-left:4px}
+.chip-badge.ch340{background:#1a7f37;color:#fff}
+.chip-badge.stc{background:#0969da;color:#fff}
+.chip-badge.unknown{background:var(--fg2);color:var(--bg)}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header-row">
+  <div class="back-btn" id="backBtn" title="返回 STC AI 助手">
+    <span class="arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></span>
+    <span class="label">返回 AI 助手</span>
+  </div>
+  <div class="title-area">
+    <h1>STC Web ISP</h1>
+    <small>基于 WebUSB + Web Serial API 的在线烧录工具</small>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">连接</div>
+  <div class="btn-group">
+    <button class="btn btn-p" id="btnSerial" onclick="modeSerial()">串口模式</button>
+    <button class="btn btn-p" id="btnUsb" onclick="modeUsb()">USB 直连</button>
+    <button class="btn" id="btnMonitor" onclick="toggleMon()" disabled>监视</button>
+    <button class="btn" id="btnDisconnect" onclick="disconnect()" disabled>断开</button>
+  </div>
+  <div class="info" id="connStatus">未连接</div>
+</div>
+
+<div class="card">
+  <div class="card-title">设置</div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap">
+    <div>波特率<br><select id="baud">
+<option>1000000</option><option>230400</option><option selected>115200</option><option>57600</option><option>38400</option><option>19200</option><option>9600</option></select></div>
+    <div>校验(仅监视)<br><select id="parity">
+<option value="none" selected>无校验</option><option value="even">偶校验</option><option value="odd">奇校验</option></select></div>
+  </div>
+  <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px">
+      <input type="checkbox" id="wirelessMode"> 无线串口兼容模式
+    </label>
+    <span style="font-size:12px;color:var(--fg2)">间隔:
+      <select id="intervalSelect" style="font-size:12px">
+        <option value="20">20ms</option><option value="50" selected>50ms</option>
+        <option value="100">100ms</option>
+      </select>
+    </span>
+  </div>
+  <div style="margin-top:4px;font-size:11px;color:var(--fg2)">无线模式增大包间隔，适配半双工无线串口模块</div>
+</div>
+
+<div class="card">
+  <div class="card-title">HEX 文件</div>
+  <div class="file-zone" id="fileZone">
+    <div style="font-size:24px;opacity:.6;">📂</div>
+    <div style="font-size:13px;color:var(--fg2);">点击选择 HEX 文件</div>
+    <input type="file" id="fileInput" accept=".hex">
+  </div>
+  <div class="info" id="fileInfo" style="display:none"></div>
+</div>
+
+<div class="btn-group" style="margin-bottom:8px">
+  <button class="btn btn-g" id="btnDetect" onclick="detect()" disabled>检测芯片</button>
+  <button class="btn btn-d" id="btnProgram" onclick="program()" disabled>烧录</button>
+</div>
+
+<div class="progress" id="progress"><div class="fill" id="progressFill"></div></div>
+
+<div class="card">
+  <div class="card-title"><span>日志</span><button class="btn" onclick="cl()" style="padding:2px 8px;font-size:10px">清空</button></div>
+  <div class="log" id="log"></div>
+</div>
+</div>
+
+<script>
+// ===== Android 桥接检测 =====
+var isAndroid=(typeof window.AndroidBridge!=='undefined');
+let port=null, reader=null, writer=null, fileHex=null, statusPkt=null;
+let rxBuf=new Uint8Array(0), rxQueue=[], rxRunning=false;
+var monitorOn=false, monBuf='';
+
+// ─── 支持的 USB 设备列表 (VID) ───
+var USB_DEVICES=[
+  {vid:0x34bf, name:'STC Link1D',       type:'stc'},
+  {vid:0x1A86, name:'CH340/CH341',      type:'ch340'},
+  {vid:0x4348, name:'CH340 (alt)',      type:'ch340'},
+  {vid:0x10C4, name:'CP210x',           type:'cp210x'},
+  {vid:0x067B, name:'PL2303',           type:'pl2303'},
+  {vid:0x0403, name:'FTDI',             type:'ftdi'},
+];
+
+function getChipName(vid){
+  for(var i=0;i<USB_DEVICES.length;i++){
+    if(USB_DEVICES[i].vid===vid) return USB_DEVICES[i];
+  }
+  return {vid:vid, name:'Unknown (0x'+vid.toString(16)+')', type:'unknown'};
+}
+
+function getChipBadge(type){
+  var cls=type==='unknown'?'unknown':(type==='stc'?'stc':'ch340');
+  var label=type==='stc'?'STC':(type==='unknown'?'?':'USB-SERIAL');
+  return '<span class="chip-badge '+cls+'">'+label+'</span>';
+}
+
+// ===== Android 桥接层 =====
+var androidBaud=115200;
+
+function bytesToBase64(bytes){
+  var binary='';for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+function base64ToBytes(b64){
+  if(!b64)return new Uint8Array(0);
+  var binary=atob(b64);var bytes=new Uint8Array(binary.length);
+  for(var i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  return bytes;
+}
+
+async function androidConnect(){
+  try{
+    var devJson=AndroidBridge.enumDevices();
+    var devices=JSON.parse(devJson);
+    if(!devices||devices.length===0){
+      log('未发现 CH340/CH341 设备，请通过 OTG 连接','err');return;
+    }
+    log('发现 '+devices.length+' 个设备','ok');
+    for(var i=0;i<devices.length;i++){
+      var d=devices[i];
+      var chip=getChipName(d.vendorId);
+      log('  ['+i+'] '+d.name+' VID=0x'+d.vendorId.toString(16)+' ('+chip.name+')','data');
+    }
+    // 默认打开第一个设备
+    var idx=devices.length>1?parseInt(prompt('选择设备编号 (0-'+(devices.length-1)+')','0')||'0'):0;
+    if(idx<0||idx>=devices.length)idx=0;
+    if(!AndroidBridge.openDevice(idx)){log('打开设备失败','err');return}
+    var chip=getChipName(devices[idx].vendorId);
+    connectedChipType=chip.type;
+    log('设备已打开: '+devices[idx].name+' '+getChipBadge(chip.type),'ok');
+    // 启用串口0, 设置 115200 8E1
+    if(!AndroidBridge.enableSerial(0)){log('启用串口失败','err');return}
+    if(!AndroidBridge.setSerialParameter(115200,8,1,2,false)){log('设置串口参数失败','err');return}
+    log('串口已就绪 (115200 8E1)','ok');
+    $('connStatus').innerHTML=devices[idx].name+' '+getChipBadge(chip.type);
+    btn('btnSerial',false);btn('btnUsb',false);btn('btnMonitor',true);btn('btnDisconnect',true);btn('btnDetect',true);
+    // 启动 Android 读线程
+    androidStartRX();
+  }catch(e){log('Android连接失败: '+e,'err')}
+}
+
+var androidRxRunning=false;
+function androidStartRX(){
+  if(androidRxRunning)return;
+  androidRxRunning=true;
+  rxBuf=new Uint8Array(0);
+  (function readLoop(){
+    if(!androidRxRunning||!isAndroid)return;
+    try{
+      var b64=AndroidBridge.readData(50);
+      if(b64&&b64.length>0){
+        var v=base64ToBytes(b64);
+        if(v.length>0){
+          if(monitorOn){
+            for(var i=0;i<v.length;i++){
+              var b=v[i];if(b===0)continue;
+              if(b===10){if(monBuf){log(monBuf,'data');monBuf=''};continue}
+              if(b>=32&&b<127||b===13)monBuf+=String.fromCharCode(b);
+            }
+          }
+          var tmp=new Uint8Array(rxBuf.length+v.length);
+          tmp.set(rxBuf);tmp.set(v,rxBuf.length);
+          rxBuf=tmp;
+          while(true){
+            var pkt=parsePacket(rxBuf);
+            if(!pkt)break;
+            rxQueue.push(pkt);
+            var remain=rxBuf.length-(pkt._rawLen||(pkt.payload.length+9));
+            if(remain>0){var n=new Uint8Array(remain);n.set(rxBuf.slice(rxBuf.length-remain));rxBuf=n}
+            else rxBuf=new Uint8Array(0);
+          }
+        }
+      }
+    }catch(e){}
+    setTimeout(readLoop,10);
+  })();
+}
+
+function androidStopRX(){androidRxRunning=false}
+
+// ─── 返回按钮交互 ───
+(function(){
+  var btn=document.getElementById('backBtn');
+  var timer=null, expanded=false;
+  btn.addEventListener('click',function(){
+    if(!expanded){
+      expanded=true; btn.classList.add('expanded');
+      if(timer) clearTimeout(timer);
+      timer=setTimeout(function(){btn.classList.remove('expanded');expanded=false},3000);
+    }else{
+      if(timer) clearTimeout(timer);
+      btn.classList.remove('expanded'); expanded=false;
+      window.open('/','_blank');
+    }
+  });
+  btn.addEventListener('mouseleave',function(){
+    if(expanded){
+      if(timer) clearTimeout(timer);
+      timer=setTimeout(function(){btn.classList.remove('expanded');expanded=false},3000);
+    }
+  });
+})();
+
+/** 后台读线程: 持续收数据 → 解析成包 → 塞队列 */
+async function startReader(){
+  if(rxRunning||!reader) return;
+  rxRunning=true;
+  rxBuf=new Uint8Array(0);
+  try{
+    while(rxRunning){
+      var r=await reader.read();
+      if(r.done) break;
+      if(r.value&&r.value.length>0){
+        if(monitorOn && r.value.length>0){
+          try{
+            for(var i=0;i<r.value.length;i++){
+              var b=r.value[i];if(b===0)continue;
+              if(b===10){if(monBuf){log(monBuf,'data');monBuf=''};continue}
+              if(b>=32&&b<127||b===13)monBuf+=String.fromCharCode(b);
+            }
+          }catch(e){}
+        }
+        var tmp=new Uint8Array(rxBuf.length+r.value.length);
+        tmp.set(rxBuf);tmp.set(r.value,rxBuf.length);
+        rxBuf=tmp;
+        while(true){
+          var pkt=parsePacket(rxBuf);
+          if(!pkt) break;
+          rxQueue.push(pkt);
+          var remain=rxBuf.length-(pkt._rawLen||(pkt.payload.length+9));
+          if(remain>0){var n=new Uint8Array(remain);n.set(rxBuf.slice(rxBuf.length-remain));rxBuf=n}
+          else rxBuf=new Uint8Array(0);
+        }
+      }
+    }
+  }catch(e){}
+  rxRunning=false;
+}
+
+function stopReader(){rxRunning=false}
+
+async function waitPacket(ms){
+  for(var w=0;w<Math.ceil(ms/15);w++){
+    if(rxQueue.length>0) return rxQueue.shift();
+    await sleep(15);
+  }
+  return null;
+}
+
+function $(id){return document.getElementById(id)}
+function log(m,c){var e=$('log');e.innerHTML+='<div class="'+(c||'')+'">'+m+'</div>';e.scrollTop=e.scrollHeight}
+function cl(){$('log').innerHTML=''}
+function btn(id,e){$(id).disabled=!e}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+
+async function read(t){
+  try{
+    var r=await Promise.race([reader.read(),new Promise(function(_,rej){setTimeout(function(){rej('t')},t||100)})]);
+    return r.done?new Uint8Array(0):r.value;
+  }catch(e){return new Uint8Array(0)}
+}
+function hexStr(buf,n){
+  n=n||buf.length;
+  var a=[];for(var i=0;i<n&&i<buf.length;i++)a.push(buf[i].toString(16).padStart(2,'0'));
+  return a.join(' ');
+}
+
+/** 解析 ISP 数据包: [46] B9 [dir] [00] [len] [payload...] [csum2] 16 */
+function parsePacket(buf){
+  for(var i=0;i<buf.length-4;i++){
+    if(buf[i]!==0xB9) continue;
+    if(i>0&&buf[i-1]===0x00) continue;
+    var off=i+1;if(off+2>buf.length)continue;
+    var dir=buf[off];if(dir!==0x68&&dir!==0x6A)continue;
+    var pos=off+1;if(pos>=buf.length)continue;
+    if(buf[pos]===0x00)pos++;
+    if(pos>=buf.length)continue;
+    var len=buf[pos],plen=len-6;
+    if(plen<0)continue;
+    var end = pos + 1 + plen + 2;
+    if(end >= buf.length) continue;
+    if(buf[end] !== 0x16) continue;
+    var ps=pos+1,pe=end-2;
+    if(pe>buf.length)continue;
+    var pay=buf.slice(ps,pe);
+    var cs=len+dir;for(var j=0;j<pay.length;j++)cs+=pay[j];
+    if(buf[end-2]!==((cs>>8)&0xff))continue;
+    if(buf[end-1]!==(cs&0xff))continue;
+    return {dir:dir,len:len,payload:pay,_rawLen:pay.length+8};
+  }
+  return null;
+}
+
+function buildPkt(dir,payload){
+  var len=payload.length+6,cs=len+dir;
+  for(var i=0;i<payload.length;i++)cs+=payload[i];
+  var pkt=new Uint8Array(8+payload.length);
+  pkt[0]=0x46;pkt[1]=0xB9;pkt[2]=dir;pkt[3]=0x00;pkt[4]=len;
+  for(var i=0;i<payload.length;i++)pkt[5+i]=payload[i];
+  pkt[5+payload.length]=(cs>>8)&0xff;
+  pkt[6+payload.length]=cs&0xff;
+  pkt[7+payload.length]=0x16;
+  return pkt;
+}
+
+function parseHex(data){
+  var bytes=[],written=new Set(),ext=0,size=0;
+  data.split('\n').forEach(function(l){
+    var s=l.trim();if(!s||s[0]!==':')return;
+    var bc=parseInt(s.substr(1,2),16),addr=parseInt(s.substr(3,4),16),type=parseInt(s.substr(7,2),16);
+    if(type===4){ext=parseInt(s.substr(9,4),16)<<16;return}
+    if(type===2){ext=parseInt(s.substr(9,4),16)<<4;return}
+    if(type!==0)return;
+    var abs=ext+addr;
+    for(var i=0;i<bc;i++){var idx=abs+i;while(bytes.length<=idx)bytes.push(0xFF);bytes[idx]=parseInt(s.substr(9+i*2,16),16);if(idx+1>size)size=idx+1;written.add(idx)}
+  });
+  return{data:bytes.slice(0,size),size:size,written:written}
+}
+
+// ===== USB 模式 (WebUSB + 手动 CDC) =====
+var usbDev=null, usbWriter=null, usbRxRunning=false, usbRxBuf=null;
+var connectedChipType='unknown';
+
+async function setLineCoding(baud, parity){
+  var lc=new Uint8Array(7);
+  lc[0]=baud&0xff;lc[1]=(baud>>8)&0xff;lc[2]=(baud>>16)&0xff;lc[3]=(baud>>24)&0xff;
+  lc[4]=0;
+  lc[5]={'none':0,'even':2,'odd':1}[parity]||2;
+  lc[6]=8;
+  var iface=window._usbCtrlIface||1;
+  log('   CDC: 设校验='+lc[5]+' 发到接口'+iface,'data');
+  await usbDev.controlTransferOut({requestType:'class',recipient:'interface',request:0x20,value:0,index:iface}, lc);
+  await usbDev.controlTransferOut({requestType:'class',recipient:'interface',request:0x22,value:3,index:iface}, new Uint8Array(0));
+}
+
+async function usbWrite(d){await usbDev.transferOut(window._usbEpOut||4, new Uint8Array(d))}
+
+async function usbStartRX(){
+  if(usbRxRunning) return;
+  usbRxRunning=true;
+  var buf=new Uint8Array(0);
+  try{
+    while(!stopLoop){
+      var r=await usbDev.transferIn(window._usbEpIn||4, 64);
+      if(r.data&&r.data.byteLength>0){
+        var v=new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
+        if(v.length===0) continue;
+        if(monitorOn && v.length>0){
+          try{
+            for(var i=0;i<v.length;i++){
+              var b=v[i];if(b===0)continue;
+              if(b===10){if(monBuf){log(monBuf,'data');monBuf=''};continue}
+              if(b>=32&&b<127||b===13)monBuf+=String.fromCharCode(b);
+            }
+          }catch(e){}
+        }
+        var tmp=new Uint8Array(buf.length+v.length);
+        tmp.set(buf);tmp.set(v,buf.length);
+        buf=tmp;
+        while(true){
+          var pkt=parsePacket(buf);
+          if(!pkt) break;
+          rxQueue.push(pkt);
+          var rl=pkt._rawLen||(pkt.payload.length+8);
+          if(buf.length>rl){var n=new Uint8Array(buf.length-rl);n.set(buf.slice(rl));buf=n}
+          else buf=new Uint8Array(0);
+        }
+      }
+    }
+  }catch(e){}
+  usbRxRunning=false;
+}
+
+// ─── 为不同芯片类型构建 WebUSB filter ───
+function buildUsbFilters(){
+  var filters=[];
+  for(var i=0;i<USB_DEVICES.length;i++){
+    filters.push({vendorId:USB_DEVICES[i].vid});
+  }
+  return filters;
+}
+
+// ─── 识别连接的芯片类型 ───
+function identifyChip(dev){
+  var vid=dev.vendorId;
+  return getChipName(vid);
+}
+
+async function connectUsb(){
+  try{
+    if(isAndroid){androidConnect();return}
+    if(!('usb' in navigator)){log('浏览器不支持 WebUSB，请使用 Edge/Chrome','err');return}
+
+    var filters=buildUsbFilters();
+    try {
+      usbDev=await navigator.usb.requestDevice({filters:filters});
+    } catch(e) {
+      if(e.name==='NotFoundError') {log('用户取消设备选择','warn');return}
+      // 某些浏览器需要空 filter
+      try{
+        usbDev=await navigator.usb.requestDevice({filters:[]});
+      }catch(e2){log('设备选择失败: '+e2.message,'err');return}
+    }
+    await usbDev.open();
+
+    var chip=identifyChip(usbDev);
+    connectedChipType=chip.type;
+    log('✅ 已连接 '+chip.name+' (VID=0x'+usbDev.vendorId.toString(16)+') '+getChipBadge(chip.type),'ok');
+
+    // 尝试断开内核驱动
+    for(var i=0;i<5;i++){try{await usbDev.detachKernelDriver(i)}catch(e){}}
+    await usbDev.selectConfiguration(1);
+
+    // 根据芯片类型选择不同的接口策略
+    var config=usbDev.configuration;
+    var cdcPairs=[];
+    if(config&&config.interfaces){
+      for(var i=0;i<config.interfaces.length;i++){
+        var alt=config.interfaces[i].alternate;
+        if(!alt) continue;
+        if(alt.interfaceClass===2){
+          var dataIface=i+1;
+          if(dataIface<config.interfaces.length){
+            var dAlt=config.interfaces[dataIface].alternate;
+            if(dAlt&&dAlt.interfaceClass===10){
+              cdcPairs.push({ctrl:i, data:dataIface,
+                epOut:dAlt.endpoints?dAlt.endpoints.find(function(e){return e.direction==='out'}):null,
+                epIn:dAlt.endpoints?dAlt.endpoints.find(function(e){return e.direction==='in'}):null});
+            }
+          }
+        }
+      }
+    }
+
+    // 通用接口声明逻辑
+    function tryDetach(iface){try{usbDev.detachKernelDriver(iface)}catch(e){}}
+
+    if(cdcPairs.length===0){
+      // CH340/CH341 可能不走标准 CDC class, 尝试通用接口扫描
+      log('未找到标准 CDC 接口, 尝试通用扫描...','warn');
+
+      var foundPair=false;
+
+      // 策略1: 扫描所有接口, 找有 bulk endpoint 的数据接口
+      if(config&&config.interfaces){
+        for(var i=0;i<config.interfaces.length;i++){
+          var alt=config.interfaces[i].alternate;
+          if(!alt) continue;
+          var epIn=null, epOut=null;
+          if(alt.endpoints){
+            for(var j=0;j<alt.endpoints.length;j++){
+              var ep=alt.endpoints[j];
+              if(ep.transferType==='bulk'){
+                if(ep.direction==='in') epIn=ep;
+                if(ep.direction==='out') epOut=ep;
+              }
+            }
+          }
+          if(epIn&&epOut){
+            log('   找到数据接口 IF'+i+' EP_IN='+epIn.endpointNumber+' EP_OUT='+epOut.endpointNumber,'data');
+            tryDetach(i);
+            await usbDev.claimInterface(i);
+            window._usbCtrlIface=i;
+            window._usbEpIn=epIn.endpointNumber;
+            window._usbEpOut=epOut.endpointNumber;
+            foundPair=true;
+            break;
+          }
+        }
+      }
+
+      // 策略2: 如果扫描失败, 使用 CH340 经典布局 (IF0 + IF1)
+      if(!foundPair){
+        log('   使用默认 IF1+2','warn');
+        tryDetach(2); tryDetach(1);
+        await usbDev.claimInterface(2);
+        await usbDev.claimInterface(1);
+        window._usbCtrlIface=1;
+        window._usbEpIn=4; window._usbEpOut=4;
+      }
+    }else{
+      var pair=cdcPairs[0];
+      log('CDC #1 (控制IF'+pair.ctrl+', 数据IF'+pair.data+')','data');
+      tryDetach(pair.data); tryDetach(pair.ctrl);
+      await usbDev.claimInterface(pair.data);
+      await usbDev.claimInterface(pair.ctrl);
+      window._usbCtrlIface=pair.ctrl;
+      window._usbEpIn=pair.epIn?pair.epIn.endpointNumber:4;
+      window._usbEpOut=pair.epOut?pair.epOut.endpointNumber:4;
+    }
+
+    await setLineCoding(115200,'even');
+    log('写EP=0x0'+window._usbEpOut.toString(16)+', 读EP=0x0'+window._usbEpIn.toString(16),'data');
+
+    $('connStatus').innerHTML='USB: '+chip.name+' <span class="chip-badge '+chip.type+'">'+chip.type.toUpperCase()+'</span>';
+    btn('btnSerial',false);btn('btnUsb',false);btn('btnMonitor',true);btn('btnDisconnect',true);btn('btnDetect',true);
+    stopLoop=false;
+    usbStartRX();
+  }catch(e){log('连接失败: '+e.message,'err')}
+}
+
+async function reopen(baud, parity) {
+  if(reader){try{await reader.cancel()}catch(e){};reader=null}
+  if(writer){try{writer.releaseLock()}catch(e){};writer=null}
+  try{await port.close()}catch(e){}
+  await sleep(30);
+  await port.open({baudRate:baud, parity:parity, dataBits:8, stopBits:1});
+  reader=port.readable.getReader();
+  writer=port.writable.getWriter();
+  await sleep(30);
+}
+
+async function write(d){
+  if(isAndroid){
+    var bytes=d instanceof Uint8Array?d:new Uint8Array(d);
+    AndroidBridge.writeData(bytesToBase64(bytes));
+    return;
+  }
+  if(usbDev) await usbDev.transferOut(window._usbEpOut||4, new Uint8Array(d));
+  else if(writer) await writer.write(new Uint8Array(d));
+}
+
+async function toggleMon(){
+  monitorOn=!monitorOn;
+  $('btnMonitor').textContent=monitorOn?'监视 ON':'监视';
+  $('btnMonitor').style.borderColor=monitorOn?'#3fb950':'';
+  if(isAndroid){
+    if(monitorOn){
+      // 切换到监视参数（用户选择的波特率+校验）
+      var mb=parseInt($('baud').value);
+      var mp={'none':0,'even':2,'odd':1}[$('parity').value]||2;
+      AndroidBridge.setSerialParameter(mb,8,1,mp,false);
+      log('Android 监视模式: '+mb+' '+$('parity').value,'step');
+    }else{
+      // 恢复 ISP 参数 115200 8E1
+      AndroidBridge.setSerialParameter(115200,8,1,2,false);
+      log('Android 回 ISP 模式: 115200 8E1','step');
+    }
+    return;
+  }
+  if(port){
+    rxRunning=false; await sleep(50);
+    await reopen(parseInt($('baud').value),monitorOn?$('parity').value:'even');
+    await sleep(50); startReader();
+  }
+  if(usbDev){
+    log(monitorOn?'USB 监视 8N1':'USB 回 8E1','step');
+    try{
+      var p=monitorOn?$('parity').value:'even';
+      var val={'none':0,'even':2,'odd':1}[p];
+      var monBaud=parseInt($('baud').value);
+      var lc2=new Uint8Array(7);
+      lc2[0]=monBaud&0xff;lc2[1]=(monBaud>>8)&0xff;lc2[2]=(monBaud>>16)&0xff;lc2[3]=(monBaud>>24)&0xff;
+      lc2[4]=0;lc2[5]=val;lc2[6]=8;
+      await usbDev.controlTransferOut({requestType:'class',recipient:'interface',request:0x20,value:0,index:window._usbCtrlIface||1}, lc2);
+      await usbDev.controlTransferOut({requestType:'class',recipient:'interface',request:0x22,value:0x03,index:window._usbCtrlIface||1}, new Uint8Array(0));
+      log('   校验已改: '+p+' (值='+val+')','data');
+    }catch(e){log('   改校验失败: '+e.message,'warn')}
+  }
+}
+
+async function modeSerial(){
+  if(isAndroid){log('Android 环境请使用「USB 直连」','warn');return}
+  if(usbDev){try{usbDev.close()}catch(e){};usbDev=null}
+  disconnect();
+  connect();
+}
+function modeUsb(){
+  disconnect();
+  if(isAndroid){androidConnect();return;}
+  connectUsb();
+}
+
+// ===== 串口模式 =====
+async function connect(){
+  try{
+    if(!('serial' in navigator)){log('浏览器不支持 Web Serial','err');return}
+    port=await navigator.serial.requestPort();
+    await port.open({baudRate:115200,parity:'even',dataBits:8,stopBits:1});
+    reader=port.readable.getReader();writer=port.writable.getWriter();
+    var info=port.getInfo();
+    var chip=info.usbVendorId?getChipName(info.usbVendorId):{name:'串口',type:'unknown'};
+    connectedChipType=chip.type;
+    log('串口已打开 (115200 8E1) '+getChipBadge(chip.type),'ok');
+    $('connStatus').innerHTML=chip.name+' '+getChipBadge(chip.type);
+    startReader();
+    btn('btnSerial',false);btn('btnUsb',false);btn('btnMonitor',true);btn('btnDisconnect',true);btn('btnDetect',true);
+  }catch(e){log('串口打开失败: '+e.message,'err')}
+}
+async function disconnect(){
+  if(isAndroid){
+    androidStopRX();
+    try{AndroidBridge.disconnect();}catch(e){}
+    rxRunning=false;rxQueue=[];monitorOn=false;monBuf='';connectedChipType='unknown';
+    $('connStatus').innerHTML='断开';
+    btn('btnSerial',true);btn('btnUsb',true);btn('btnMonitor',false);btn('btnDisconnect',false);
+    btn('btnDetect',false);btn('btnProgram',false);statusPkt=null;
+    return;
+  }
+  if(usbDev){try{await usbDev.close()}catch(e){};usbDev=null}
+  try{if(reader){await reader.cancel();reader=null}}catch(e){}
+  try{if(writer){writer.releaseLock();writer=null}}catch(e){}
+  try{if(port){await port.close();port=null}}catch(e){}
+  rxRunning=false; usbRxRunning=false; rxQueue=[]; monitorOn=false; monBuf=''; connectedChipType='unknown';
+  $('connStatus').innerHTML='断开';
+  btn('btnSerial',true);btn('btnUsb',true);btn('btnMonitor',false);btn('btnDisconnect',false);
+  btn('btnDetect',false);btn('btnProgram',false);statusPkt=null;
+}
+
+// ===== ISP 同步 =====
+async function syncISP(){
+  log('=== ISP 同步 ===','step');
+  startReader();
+  await sleep(30);
+  rxQueue=[]; rxBuf=new Uint8Array(0);
+  var wireless=document.getElementById('wirelessMode')&&document.getElementById('wirelessMode').checked;
+  var interval=wireless?parseInt(document.getElementById('intervalSelect').value):1;
+  var maxPulse=wireless?2000:10000;
+  if(wireless) log('无线模式 0x7F 脉冲 (间隔'+interval+'ms)...','step');
+  else log('发送 0x7F 脉冲...','step');
+  log('请确保目标板已上电，必要时断电再上电触发 ISP','warn');
+  var found=false;
+  for(var pulse=0;pulse<maxPulse;pulse++){
+    await write([0x7F]);
+    await sleep(interval);
+    while(rxQueue.length>0){
+      var pkt2=rxQueue.shift();
+      if(pkt2&&pkt2.payload[0]===0x50){
+        statusPkt=pkt2;
+        log(pulse+': ISP 同步成功!','ok');
+        if(pkt2.payload.length>=22){
+          var mag2=(pkt2.payload[20]<<8)|pkt2.payload[21];
+          var bsl2=(pkt2.payload[17]>>4)+'.'+(pkt2.payload[17]&0x0f);
+          log('   Magic: 0x'+mag2.toString(16).padStart(4,'0')+' BSL: '+bsl2,'ok');
+        }
+        found=true; break;
+      }else if(pkt2){
+        log('包: dir=0x'+pkt2.dir.toString(16)+' len='+pkt2.len+' payload[0]=0x'+pkt2.payload[0].toString(16)+' payload='+hexStr(pkt2.payload,16),'data');
+      }
+    }
+    if(found) break;
+    if(pulse%500===0)log('已发 '+pulse+' 次','warn');
+  }
+  if(!found){
+    log('ISP 同步失败','err');
+    if(rxBuf.length>0) log('  原始缓冲区: '+hexStr(rxBuf,64),'data');
+    return false
+  }
+  return true;
+}
+
+// ===== 检测 =====
+async function detect(){
+  btn('btnDetect',false);
+  if(monitorOn){monitorOn=false;$('btnMonitor').textContent='监视';$('btnMonitor').style.borderColor='';monBuf=''}
+  try{
+    var ok=await syncISP();
+    if(!ok){btn('btnDetect',true);return}
+    var pl=statusPkt.payload;
+    if(!pl||pl.length<22){log('数据包过短: '+pl.length+'B','err');btn('btnDetect',true);return}
+    var mag=(pl[20]<<8)|pl[21];
+    var bsl=(pl[17]>>4)+'.'+(pl[17]&0x0f);
+    var ms={0x0022:'STC89C52RC',0x00f2:'STC89C58RD+',0xf1e1:'STC12C5A60S2',0xf294:'STC15F104W',0xf7e3:'STC32G12K128',0xf784:'STC8H8K64U',0x0b87:'STC8系列',0x78b4:'AI8051U'};
+    log((ms[mag]||'0x'+mag.toString(16))+'  BSL '+bsl,'ok');
+    btn('btnProgram',!!fileHex);
+  }catch(e){log('检测失败: '+e.message,'err')}
+  btn('btnDetect',true);
+}
+
+function hexBytes(buf,n){
+  n=n||Math.min(20,buf.length);
+  if(!buf||!buf.length) return '';
+  var a=[];for(var i=0;i<n&&i<buf.length;i++)a.push(buf[i].toString(16).padStart(2,'0'));
+  return a.join(' ')+(buf.length>n?'...':'');
+}
+
+async function readPacket(timeout){
+  var all=new Uint8Array(0);
+  for(var w=0;w<Math.ceil(timeout/20);w++){
+    for(var r=0;r<5;r++){
+      var d=await read(5);
+      if(d&&d.length>0){
+        var tmp=new Uint8Array(all.length+d.length);
+        tmp.set(all);tmp.set(d,all.length);
+        all=tmp;
+        var pkt=parsePacket(all);
+        if(pkt) return pkt;
+      }
+    }
+    await sleep(15);
+  }
+  var pkt=parsePacket(all);
+  return pkt||null;
+}
+
+// ===== 烧录 =====
+async function program(){
+  if(!fileHex){log('请先选择 HEX 文件','err');return}
+  btn('btnProgram',false);btn('btnDetect',false);
+  $('progress').classList.add('active');$('progressFill').style.width='0%';
+  try{
+    var hex=parseHex(fileHex);
+    log('HEX文件: '+hex.size+'B','ok');
+    log('前20B: '+hexBytes(hex.data,20),'data');
+    log('有效块: '+Math.ceil(hex.written.size/128)+' 块 ('+hex.written.size+' 字节)','data');
+    if(monitorOn){monitorOn=false;$('btnMonitor').textContent='监视';monBuf=''}
+    statusPkt=null;
+    if(!(await syncISP()))throw Error('ISP 失败');
+    rxQueue=[];
+    log('[1/5] 设置参数 (0x01)...','step');
+    var selBaud=parseInt($('baud').value);
+    var RL=65536-Math.round(24000000/(selBaud*4));
+    var arg=statusPkt&&statusPkt.payload?statusPkt.payload[4]:0x00;
+    var pkt=buildPkt(0x6a,[0x01,arg,0x40,(RL>>8)&0xff,RL&0xff,0x00,0x00,0xc3]);
+    log('   > '+hexBytes(pkt),'data');
+    rxQueue=[];
+    await write(pkt);
+    var rp=await waitPacket(500);
+    if(!rp||rp.payload[0]!==0x01)throw Error('设置参数失败: '+(rp?'0x'+rp.payload[0].toString(16):'超时'));
+    log('   < 0x01 OK','ok');
+    if(isAndroid){
+      // 切换到目标波特率
+      AndroidBridge.setSerialParameter(selBaud,8,1,2,false);
+      log('   Android 波特率已切换到 '+selBaud,'data');
+    }else if(port){
+      rxRunning=false; await sleep(30);
+      try{if(reader){await reader.cancel();reader=null}}catch(e){}
+      try{if(writer){writer.releaseLock();writer=null}}catch(e){}
+      try{await port.close()}catch(e){}
+      await sleep(30);
+      await port.open({baudRate:selBaud,parity:'even',dataBits:8,stopBits:1});
+      reader=port.readable.getReader();
+      writer=port.writable.getWriter();
+      await sleep(30);
+      startReader();
+    }else if(usbDev){
+      await setLineCoding(selBaud,'even');
+    }
+    $('progressFill').style.width='15%';
+    log('[2/5] 准备编程 (0x05)...','step');
+    pkt=buildPkt(0x6a,[0x05,0x00,0x00,0x5a,0xa5]);
+    log('   > '+hexBytes(pkt),'data');
+    rxQueue=[];
+    await write(pkt);
+    rp=await waitPacket(300);
+    if(!rp||rp.payload[0]!==0x05)throw Error('准备编程失败: '+(rp?'0x'+rp.payload[0].toString(16):'超时'));
+    log('   < 0x05 OK','ok');
+    $('progressFill').style.width='25%';
+    log('[3/5] 擦除 (0x03)...','step');
+    pkt=buildPkt(0x6a,[0x03,0x00,0x00,0x5a,0xa5]);
+    log('   > '+hexBytes(pkt),'data');
+    rxQueue=[];
+    await write(pkt);
+    rp=await waitPacket(3000);
+    if(!rp||rp.payload[0]!==0x03)throw Error('擦除失败: '+(rp?'0x'+rp.payload[0].toString(16):'超时'));
+    log('   < 0x03 OK','ok');
+    $('progressFill').style.width='35%';
+    log('[4/5] 写入代码...','step');
+    var bs=128,d=hex.data;
+    var addrs=Array.from(hex.written).sort(function(x,y){return x-y});
+    var blkSet=new Set();
+    addrs.forEach(function(ad){blkSet.add(Math.floor(ad/bs))});
+    var blks=Array.from(blkSet).sort(function(x,y){return x-y});
+    log('共 '+blks.length+' 块, 有效数据 '+hex.written.size+'B','data');
+    var wireless=$('wirelessMode')&&$('wirelessMode').checked;
+    var wInterval=wireless?parseInt($('intervalSelect').value):0;
+    var keepAlivePkt=wireless?buildPkt(0x6a,[0x01,arg,0x40,(RL>>8)&0xff,RL&0xff,0x00,0x00,0xc3]):null;
+    var lastActivity=Date.now();
+    var writtenCnt=0;
+    for(var bi=0;bi<blks.length;bi++){
+      var i=blks[bi],a=i*bs;
+      if(wireless && Date.now()-lastActivity>300){
+        log('   保活...','step');
+        rxQueue=[];
+        await write(keepAlivePkt);
+        var kaRsp=await waitPacket(2000);
+        if(!kaRsp||kaRsp.payload[0]!==0x01)throw Error('保活失败');
+        lastActivity=Date.now();
+      }
+      var b=[];for(var j=0;j<bs;j++)b.push((a+j<d.length)?d[a+j]:0xFF);
+      var cmd=0x22;
+      if(((a>>16)&0xff)===0xFE) cmd|=0x10;
+      var p=new Uint8Array(5+bs);p[0]=cmd;p[1]=(a>>8)&0xff;p[2]=a&0xff;
+      p[3]=0x5a;p[4]=0xa5;for(var j=0;j<bs;j++)p[5+j]=b[j];
+      var wpkt=buildPkt(0x6a,p);
+      log('   块'+i+' @0x'+a.toString(16)+' cmd=0x'+cmd.toString(16),'data');
+      rxQueue=[];
+      await write(wpkt);
+      var to=wireless?10000:Math.max(100,Math.round(3000000/parseInt($('baud').value)));
+      rp=await waitPacket(to);
+      if(!rp||rp.payload[0]!==0x02||rp.payload[1]!==0x54){
+        throw Error('写入失败 @0x'+a.toString(16)+': '+(rp?'0x'+rp.payload[0].toString(16)+' '+rp.payload[1].toString(16):'超时'));
+      }
+      lastActivity=Date.now();
+      writtenCnt++;
+      if(writtenCnt%10===0)log('   已写 '+writtenCnt+'/'+blks.length+' 块','data');
+      $('progressFill').style.width=35+(writtenCnt/blks.length)*60+'%';
+    }
+    log('写入完成 ('+writtenCnt+' 块)','ok');
+    log('[5/5] 复位 (0x82)...','step');
+    var resetPkt=buildPkt(0x6a,[0x82]);
+    log('   发送: '+hexBytes(resetPkt),'data');
+    await write(resetPkt);
+    $('progressFill').style.width='100%';
+    log('烧录完成!','ok');
+    statusPkt=null;
+  }catch(e){log('烧录失败: '+e.message,'err')}
+  btn('btnProgram',!!fileHex);btn('btnDetect',true);
+}
+
+// ===== 文件 =====
+function loadHex(f){
+  if(!f) return;
+  var r=new FileReader();
+  r.onload=function(){
+    fileHex=r.result;
+    var h=parseHex(fileHex);
+    log('载入: '+f.name,'ok');
+    log('   大小: '+f.size+'B -> HEX数据: '+h.size+'B','data');
+    log('   前16B: '+hexBytes(h.data,16),'data');
+    $('fileInfo').style.display='block';
+    $('fileInfo').innerHTML=f.name+' ('+h.size+'B)';
+    btn('btnProgram',true);
+  };
+  r.readAsText(f);
+  $('fileInput').value='';
+}
+
+$('fileInput').addEventListener('change',function(e){loadHex(e.target.files[0])});
+var fz=$('fileZone');
+fz.addEventListener('dragover',function(e){e.preventDefault();fz.classList.add('dragover')});
+fz.addEventListener('dragleave',function(){fz.classList.remove('dragover')});
+fz.addEventListener('drop',function(e){
+  e.preventDefault();fz.classList.remove('dragover');
+  loadHex(e.dataTransfer.files[0]);
+});
+
+(function(){
+  var mode=isAndroid?'[Android App]':'[Web 浏览器]';
+  var tip = [
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+    '  STC Web ISP 烧录工具 '+mode,
+    '',
+    '  支持的烧录器/USB转串口:',
+    '    - STC Link1D (VID 0x34BF)',
+    '    - CH340/CH341 (VID 0x1A86/0x4348)',
+    '    - CP210x (VID 0x10C4)',
+    '    - PL2303 (VID 0x067B)',
+    '    - FTDI (VID 0x0403)',
+    '',
+    '  连接方式:',
+    '    电脑端: 推荐「串口模式」',
+    '    手机端: 推荐「USB 直连」',
+    '    Android App: 使用「USB 直连」(OTG)',
+    '',
+    '  流程: 连接 -> 选HEX -> 检测芯片 -> 烧录',
+    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+  ];
+  for(var i=0;i<tip.length;i++) log(tip[i],'info');
+})();
+</script>
+</body>
+</html>
