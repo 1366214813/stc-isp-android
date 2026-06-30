@@ -231,6 +231,14 @@ function androidStartRX(){
 
 function androidStopRX(){androidRxRunning=false}
 
+// Android 串口缓冲区清空
+function androidFlushBuffer(){
+  if(!isAndroid)return;
+  for(var i=0;i<10;i++){
+    try{AndroidBridge.readData(10);}catch(e){}
+  }
+}
+
 // ─── 返回按钮交互 ───
 (function(){
   var btn=document.getElementById('backBtn');
@@ -772,9 +780,20 @@ async function program(){
     if(!rp||rp.payload[0]!==0x01)throw Error('设置参数失败: '+(rp?'0x'+rp.payload[0].toString(16):'超时'));
     log('   < 0x01 OK','ok');
     if(isAndroid){
+      // 停止读线程
+      androidStopRX();
+      await sleep(50);
       // 切换到目标波特率
       AndroidBridge.setSerialParameter(selBaud,8,1,2,false);
       log('   Android 波特率已切换到 '+selBaud,'data');
+      // 等待波特率切换生效
+      await sleep(200);
+      // 清空旧缓冲区数据
+      androidFlushBuffer();
+      rxQueue=[];
+      rxBuf=new Uint8Array(0);
+      // 重启读线程
+      androidStartRX();
     }else if(port){
       rxRunning=false; await sleep(30);
       try{if(reader){await reader.cancel();reader=null}}catch(e){}
