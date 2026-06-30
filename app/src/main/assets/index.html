@@ -928,10 +928,21 @@ async function program(){
       $('progressFill').style.width=35+(writtenCnt/blks.length)*60+'%';
     }
     log('写入完成 ('+writtenCnt+' 块)','ok');
-    log('[5/5] 复位 (0x82)...','step');
-    var resetPkt=buildPkt(0x6a,[0x82]);
-    log('   发送: '+hexBytes(resetPkt),'data');
-    await write(resetPkt);
+    log('[5/5] 复位...','step');
+    if(isAndroid){
+      // 发送软件复位命令
+      var resetPkt=buildPkt(0x6a,[0x82]);
+      log('   软件复位: '+hexBytes(resetPkt),'data');
+      await write(resetPkt);
+      await sleep(100);
+      // 硬件复位: 通过 DTR 信号触发
+      log('   硬件复位: DTR toggle','data');
+      AndroidBridge.resetMCU();
+    }else{
+      var resetPkt=buildPkt(0x6a,[0x82]);
+      log('   发送: '+hexBytes(resetPkt),'data');
+      await write(resetPkt);
+    }
     $('progressFill').style.width='100%';
     log('烧录完成!','ok');
     statusPkt=null;

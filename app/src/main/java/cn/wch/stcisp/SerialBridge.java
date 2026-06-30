@@ -268,4 +268,24 @@ public class SerialBridge {
         if (currentDevice == null) return "";
         return currentDevice.getDeviceName();
     }
+
+    /**
+     * 硬件复位 MCU: 拉低 DTR 触发复位
+     * STC MCU 需要 DTR 信号变化来触发复位
+     */
+    @JavascriptInterface
+    public boolean resetMCU() {
+        if (currentDevice == null) return false;
+        try {
+            // 拉低 DTR (触发复位)
+            WCHUARTManager.getInstance().setDTR(currentDevice, currentSerialNumber, true);
+            Thread.sleep(100);
+            // 释放 DTR (允许 MCU 启动)
+            WCHUARTManager.getInstance().setDTR(currentDevice, currentSerialNumber, false);
+            Thread.sleep(100);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }
