@@ -796,6 +796,8 @@ async function program(){
     if(monitorOn){monitorOn=false;$('btnMonitor').textContent='监视';monBuf=''}
     statusPkt=null;
     if(!(await syncISP()))throw Error('ISP 失败');
+    // ISP 同步完成，停止后台读线程，编程时直接从串口读取
+    if(isAndroid) androidStopRX();
     rxQueue=[];
     log('[1/5] 设置参数 (0x01)...','step');
     var selBaud=parseInt($('baud').value);
