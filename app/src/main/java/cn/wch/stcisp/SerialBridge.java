@@ -3,7 +3,6 @@ package cn.wch.stcisp;
 import android.app.Activity;
 import android.hardware.usb.UsbDevice;
 import android.os.Build;
-import android.util.Base64;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONArray;
@@ -188,12 +187,12 @@ public class SerialBridge {
     }
 
     @JavascriptInterface
-    public int writeData(String base64Data) {
+    public int writeData(String hexData) {
         if (currentDevice == null || !serialEnabled) return -1;
         try {
-            byte[] data = Base64.decode(base64Data, Base64.NO_WRAP);
+            byte[] data = hexToBytes(hexData);
             return WCHUARTManager.getInstance().syncWriteData(
-                    currentDevice, currentSerialNumber, data, data.length, 2000);
+                    currentDevice, currentSerialNumber, data, data.length, 5000);
         } catch (Exception e) {
             return -1;
         }
@@ -205,10 +204,28 @@ public class SerialBridge {
         try {
             byte[] data = WCHUARTManager.getInstance().readData(currentDevice, currentSerialNumber, timeoutMs);
             if (data == null || data.length == 0) return "";
-            return Base64.encodeToString(data, Base64.NO_WRAP);
+            return bytesToHex(data);
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private static byte[] hexToBytes(String hex) {
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b & 0xff));
+        }
+        return sb.toString();
     }
 
     @JavascriptInterface

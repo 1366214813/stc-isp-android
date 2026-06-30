@@ -153,14 +153,15 @@ function getChipBadge(type){
 // ===== Android 桥接层 =====
 var androidBaud=115200;
 
-function bytesToBase64(bytes){
-  var binary='';for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
-  return btoa(binary);
+// 使用 hex 编码代替 base64，避免二进制数据损坏
+function bytesToHex(bytes){
+  var h='';for(var i=0;i<bytes.length;i++)h+=('0'+bytes[i].toString(16)).slice(-2);
+  return h;
 }
-function base64ToBytes(b64){
-  if(!b64)return new Uint8Array(0);
-  var binary=atob(b64);var bytes=new Uint8Array(binary.length);
-  for(var i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+function hexToBytes(hex){
+  if(!hex)return new Uint8Array(0);
+  var bytes=new Uint8Array(hex.length/2);
+  for(var i=0;i<hex.length;i+=2)bytes[i/2]=parseInt(hex.substr(i,2),16);
   return bytes;
 }
 
@@ -205,7 +206,7 @@ function androidStartRX(){
     try{
       var b64=AndroidBridge.readData(50);
       if(b64&&b64.length>0){
-        var v=base64ToBytes(b64);
+        var v=hexToBytes(b64);
         if(v.length>0){
           if(monitorOn){
             for(var i=0;i<v.length;i++){
@@ -312,7 +313,7 @@ async function waitPacket(ms){
       try{
         var b64=AndroidBridge.readData(30);
         if(b64&&b64.length>0){
-          var v=base64ToBytes(b64);
+          var v=hexToBytes(b64);
           var tmp=new Uint8Array(all.length+v.length);
           tmp.set(all);tmp.set(v,all.length);
           all=tmp;
@@ -368,7 +369,7 @@ async function read(t){
     try{
       var b64=AndroidBridge.readData(t||100);
       if(!b64||b64.length===0) return new Uint8Array(0);
-      return base64ToBytes(b64);
+      return hexToBytes(b64);
     }catch(e){return new Uint8Array(0)}
   }
   // WebSerial 模式
@@ -631,7 +632,7 @@ async function reopen(baud, parity) {
 async function write(d){
   if(isAndroid){
     var bytes=d instanceof Uint8Array?d:new Uint8Array(d);
-    var ret=AndroidBridge.writeData(bytesToBase64(bytes));
+    var ret=AndroidBridge.writeData(bytesToHex(bytes));
     if(ret<=0) log('   写入返回: '+ret,'warn');
     return;
   }
