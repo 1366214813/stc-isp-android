@@ -603,7 +603,8 @@ async function reopen(baud, parity) {
 async function write(d){
   if(isAndroid){
     var bytes=d instanceof Uint8Array?d:new Uint8Array(d);
-    AndroidBridge.writeData(bytesToBase64(bytes));
+    var ret=AndroidBridge.writeData(bytesToBase64(bytes));
+    if(ret<=0) log('   写入返回: '+ret,'warn');
     return;
   }
   if(usbDev) await usbDev.transferOut(window._usbEpOut||4, new Uint8Array(d));
@@ -885,7 +886,9 @@ async function program(){
       log('   块'+i+' @0x'+a.toString(16)+' cmd=0x'+cmd.toString(16),'data');
       rxQueue=[];
       await write(wpkt);
-      var to=wireless?10000:(isAndroid?3000:Math.max(100,Math.round(3000000/parseInt($('baud').value))));
+      // 写入后等待数据传输完成
+      if(isAndroid) await sleep(100);
+      var to=wireless?10000:(isAndroid?5000:Math.max(100,Math.round(3000000/parseInt($('baud').value))));
       rp=await waitPacket(to);
       if(!rp||rp.payload[0]!==0x02||rp.payload[1]!==0x54){
         throw Error('写入失败 @0x'+a.toString(16)+': '+(rp?'0x'+rp.payload[0].toString(16)+' '+rp.payload[1].toString(16):'超时'));
