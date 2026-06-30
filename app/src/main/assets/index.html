@@ -112,7 +112,10 @@ select{background:var(--bg);border:1px solid var(--bd);border-radius:4px;color:v
 <div class="progress" id="progress"><div class="fill" id="progressFill"></div></div>
 
 <div class="card">
-  <div class="card-title"><span>日志</span><button class="btn" onclick="cl()" style="padding:2px 8px;font-size:10px">清空</button></div>
+  <div class="card-title"><span>日志</span>
+    <button class="btn" onclick="exportLog()" style="padding:2px 8px;font-size:10px">导出</button>
+    <button class="btn" onclick="cl()" style="padding:2px 8px;font-size:10px">清空</button>
+  </div>
   <div class="log" id="log"></div>
 </div>
 </div>
@@ -331,6 +334,31 @@ async function waitPacket(ms){
 function $(id){return document.getElementById(id)}
 function log(m,c){var e=$('log');e.innerHTML+='<div class="'+(c||'')+'">'+m+'</div>';e.scrollTop=e.scrollHeight}
 function cl(){$('log').innerHTML=''}
+function exportLog(){
+  var el=$('log');
+  var lines=[];
+  for(var i=0;i<el.children.length;i++){
+    lines.push(el.children[i].textContent);
+  }
+  var text=lines.join('\n');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      log('日志已复制到剪贴板','ok');
+    },function(){
+      fallbackCopy(text);
+    });
+  }else{
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text){
+  var ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');log('日志已复制到剪贴板','ok');}
+  catch(e){log('复制失败,请手动选择复制','err');}
+  document.body.removeChild(ta);
+}
 function btn(id,e){$(id).disabled=!e}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
